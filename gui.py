@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from db_connection import list_computers, add_computer, add_router, resolve_dns, delete_computer_by_id  # Не забывайте создать функцию add_router
+from db_connection import list_computers, add_computer, add_router, resolve_dns, delete_computer_by_id, update_computer, list_routers, delete_router_by_id, get_computer_by_id  # Не забывайте создать функцию add_router
 
 class MyApp:
     def __init__(self, root):
@@ -12,26 +12,71 @@ class MyApp:
         self.create_tabs()
 
     def create_tabs(self):
-        # Стиль для вкладок
-        tab_control = ttk.Notebook(self.root, style="TNotebook")
+        tab_control = ttk.Notebook(self.root)
         self.tab_computers = ttk.Frame(tab_control)
         self.tab_dns = ttk.Frame(tab_control)
-        self.tab_add_computer = ttk.Frame(tab_control)  # Вкладка для добавления компьютера
-        self.tab_add_router = ttk.Frame(tab_control)  # Вкладка для добавления маршрутизатора
+        self.tab_add_computer = ttk.Frame(tab_control)
+        self.tab_add_router = ttk.Frame(tab_control)
+        self.tab_routers = ttk.Frame(tab_control)  # Новая вкладка для маршрутизаторов
 
-        # Добавление вкладок в контроллер вкладок
         tab_control.add(self.tab_computers, text="Computers", padding=10)
         tab_control.add(self.tab_dns, text="DNS Resolver", padding=10)
         tab_control.add(self.tab_add_computer, text="Add Computer", padding=10)
         tab_control.add(self.tab_add_router, text="Add Router", padding=10)
+        tab_control.add(self.tab_routers, text="Routers", padding=10)  # Добавляем вкладку маршрутизаторов
 
         tab_control.pack(expand=1, fill="both", padx=20, pady=20)
 
-        # Создаем вкладки
         self.create_computers_tab()
         self.create_dns_tab()
         self.create_add_computer_tab()
-        self.create_add_router_tab()  # Создаём вкладку для добавления маршрутизатора
+        self.create_add_router_tab()
+        self.create_routers_tab()  # Создаем вкладку маршрутизаторов
+
+    def create_routers_tab(self):
+        self.routers_label = tk.Label(self.tab_routers, text="Routers List", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
+        self.routers_label.pack(fill="x", padx=10)
+
+        self.routers_listbox = tk.Listbox(self.tab_routers, font=("Arial", 14), height=10, bg="#ffffff", fg="#333333")
+        self.routers_listbox.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Кнопка обновления списка маршрутизаторов
+        self.refresh_routers_button = ttk.Button(self.tab_routers, text="Refresh", command=self.refresh_routers_list, style="TButton")
+        self.refresh_routers_button.pack(pady=5)
+
+        # Кнопка для удаления маршрутизатора
+        self.delete_router_button = ttk.Button(self.tab_routers, text="Delete Router", command=self.delete_router, style="TButton")
+        self.delete_router_button.pack(pady=5)
+
+        self.refresh_routers_list()  # Первоначальное заполнение списка
+
+    def refresh_routers_list(self):
+        """Обновляет список маршрутизаторов."""
+        self.routers_listbox.delete(0, tk.END)
+        routers = list_routers()  # Получаем список маршрутизаторов из базы данных
+        for router in routers:
+            self.routers_listbox.insert(tk.END, f"ID: {router[0]} | IP: {router[1]} | MAC: {router[2]}")
+
+    def delete_router(self):
+        """Удаляет выбранный маршрутизатор."""
+        selected = self.routers_listbox.curselection()
+        if not selected:
+            messagebox.showerror("Error", "Please select a router to delete.")
+            return
+
+        router_info = self.routers_listbox.get(selected)
+        router_id = router_info.split('|')[0].strip().replace("ID: ", "")
+
+        confirm = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete Router ID: {router_id}?")
+        if confirm:
+            try:
+                delete_router_by_id(router_id)  # Вызов функции удаления из базы данных
+                messagebox.showinfo("Success", f"Router ID: {router_id} deleted successfully!")
+                self.refresh_routers_list()  # Обновляем список после удаления
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to delete router: {e}")
+
+
 
     def create_computers_tab(self):
         # Вкладка с компьютерами
@@ -48,12 +93,80 @@ class MyApp:
         # Кнопка добавления компьютера
         self.add_computer_button = ttk.Button(self.tab_computers, text="Add Computer", command=self.switch_to_add_computer_tab, style="TButton")
         self.add_computer_button.pack(pady=5)
+        # Для редактирования
+        self.edit_computer_button = ttk.Button(self.tab_computers, text="Edit Computer", command=self.edit_computer, style="TButton")  # Новая кнопка
+        self.edit_computer_button.pack(pady=5)
 
         # Кнопка удаления компьютера
         self.delete_computer_button = ttk.Button(self.tab_computers, text="Delete Computer", command=self.delete_computer, style="TButton")
         self.delete_computer_button.pack(pady=5)
 
         self.refresh_computers()
+
+    def edit_computer(self):
+        selected = self.computers_listbox.curselection()
+        if not selected:
+            messagebox.showerror("Error", "Please select a computer to edit.")
+            return
+
+        computer_info = self.computers_listbox.get(selected)
+        computer_id = computer_info.split('|')[0].replace("ID: ", "").strip()
+
+        # Сохраняем ID для редактирования
+        self.current_editing_id = computer_id
+
+        # Получаем полную информацию о компьютере
+        computer_data = get_computer_by_id(computer_id)
+
+        if computer_data:
+            ip, mac, router_id, network_name = computer_data
+
+            # Заполняем поля во вкладке "Add Computer"
+            self.ip_entry_computer.delete(0, tk.END)
+            self.ip_entry_computer.insert(0, ip)
+
+            self.mac_entry_computer.delete(0, tk.END)
+            self.mac_entry_computer.insert(0, mac)
+
+            self.router_id_entry_computer.delete(0, tk.END)
+            self.router_id_entry_computer.insert(0, router_id if router_id else "")
+
+            self.network_name_entry_computer.delete(0, tk.END)
+            self.network_name_entry_computer.insert(0, network_name if network_name else "")
+
+            # Переключаемся на вкладку "Add Computer"
+            self.switch_to_add_computer_tab()
+
+            # Меняем текст кнопки на "Change"
+            self.submit_button_computer.config(text="Change", command=self.change_computer)
+        else:
+            messagebox.showerror("Error", "Failed to load computer data.")
+
+    def change_computer(self):
+        ip = self.ip_entry_computer.get()
+        mac = self.mac_entry_computer.get()
+        router_id = self.router_id_entry_computer.get()
+        network_name = self.network_name_entry_computer.get()
+
+        if ip and mac and router_id and network_name:
+            try:
+                update_computer(self.current_editing_id, ip, mac, router_id, network_name)  # Обновляем данные
+                messagebox.showinfo("Success", "Computer updated successfully!")
+                self.clear_computer_fields()
+                self.submit_button_computer.config(text="Add Computer", command=self.submit_computer)  # Возвращаем кнопку к исходному состоянию
+                self.refresh_computers()
+                self.switch_to_computers_tab()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to update computer: {e}")
+        else:
+            messagebox.showerror("Error", "Please fill in all fields.")
+
+    def parse_computer_info(self, computer_info):
+        parts = computer_info.split('|')
+        computer_id = parts[0].replace("ID: ", "").strip()
+        ip = parts[1].replace("IP: ", "").strip()
+        mac = parts[2].replace("MAC: ", "").strip()
+        return computer_id, ip, mac
 
     def refresh_computers(self):
         self.refresh_computers_button.config(text="Loading...", state=tk.DISABLED)  # Ожидание

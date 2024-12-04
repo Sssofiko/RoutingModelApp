@@ -68,3 +68,50 @@ def resolve_dns(domain_name):
     query = "SELECT ip_address FROM dns_table WHERE domain_name = %s"
     result = execute_query(query, (domain_name,))
     return result[0][0] if result else None
+
+def list_routers():
+    query = "SELECT id, ip_address, mac_address FROM router"
+    return execute_query(query)
+
+def delete_router_by_id(router_id):
+    query = "DELETE FROM router WHERE id = %s"
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(query, (router_id,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
+
+def get_computer_by_id(computer_id):
+    """Получает данные компьютера по ID."""
+    query = """
+        SELECT ip_address, mac_address, router_id, network_name
+        FROM computer
+        WHERE id = %s
+    """
+    result = execute_query(query, (computer_id,))
+    return result[0] if result else None
+
+def update_computer(computer_id, ip_address, mac_address, router_id, network_name):
+    query = """
+        UPDATE computer
+        SET ip_address = %s, mac_address = %s, router_id = %s, network_name = %s
+        WHERE id = %s
+    """
+    params = (ip_address, mac_address, router_id, network_name, computer_id)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(query, params)
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
