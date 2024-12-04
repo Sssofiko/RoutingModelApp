@@ -1,0 +1,235 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+from db_connection import list_computers, add_computer, add_router, resolve_dns, delete_computer_by_id  # Не забывайте создать функцию add_router
+
+class MyApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Network Management App")
+        self.root.geometry("900x600")  # Увеличенное окно
+        self.root.config(bg="#e0f7fa")  # Фон приложения
+        self.root.iconbitmap("assets/icon.ico")  # Иконка приложения
+        self.create_tabs()
+
+    def create_tabs(self):
+        # Стиль для вкладок
+        tab_control = ttk.Notebook(self.root, style="TNotebook")
+        self.tab_computers = ttk.Frame(tab_control)
+        self.tab_dns = ttk.Frame(tab_control)
+        self.tab_add_computer = ttk.Frame(tab_control)  # Вкладка для добавления компьютера
+        self.tab_add_router = ttk.Frame(tab_control)  # Вкладка для добавления маршрутизатора
+
+        # Добавление вкладок в контроллер вкладок
+        tab_control.add(self.tab_computers, text="Computers", padding=10)
+        tab_control.add(self.tab_dns, text="DNS Resolver", padding=10)
+        tab_control.add(self.tab_add_computer, text="Add Computer", padding=10)
+        tab_control.add(self.tab_add_router, text="Add Router", padding=10)
+
+        tab_control.pack(expand=1, fill="both", padx=20, pady=20)
+
+        # Создаем вкладки
+        self.create_computers_tab()
+        self.create_dns_tab()
+        self.create_add_computer_tab()
+        self.create_add_router_tab()  # Создаём вкладку для добавления маршрутизатора
+
+    def create_computers_tab(self):
+        # Вкладка с компьютерами
+        self.computers_label = tk.Label(self.tab_computers, text="Computers List", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
+        self.computers_label.pack(fill="x", padx=10)
+
+        self.computers_listbox = tk.Listbox(self.tab_computers, font=("Arial", 14), height=10, bg="#ffffff", fg="#333333", bd=0, highlightthickness=0, selectmode=tk.SINGLE)
+        self.computers_listbox.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Кнопка обновления списка
+        self.refresh_computers_button = ttk.Button(self.tab_computers, text="Refresh", command=self.refresh_computers, style="TButton")
+        self.refresh_computers_button.pack(pady=5)
+
+        # Кнопка добавления компьютера
+        self.add_computer_button = ttk.Button(self.tab_computers, text="Add Computer", command=self.switch_to_add_computer_tab, style="TButton")
+        self.add_computer_button.pack(pady=5)
+
+        # Кнопка удаления компьютера
+        self.delete_computer_button = ttk.Button(self.tab_computers, text="Delete Computer", command=self.delete_computer, style="TButton")
+        self.delete_computer_button.pack(pady=5)
+
+        self.refresh_computers()
+
+    def refresh_computers(self):
+        self.refresh_computers_button.config(text="Loading...", state=tk.DISABLED)  # Ожидание
+        self.root.update()  # Обновляем интерфейс
+
+        # Получаем список компьютеров и отображаем их
+        computers = list_computers()
+        self.computers_listbox.delete(0, tk.END)
+        for computer in computers:
+            self.computers_listbox.insert(tk.END, f"ID: {computer[0]} | IP: {computer[1]} | MAC: {computer[2]}")
+
+        self.refresh_computers_button.config(text="Refresh", state=tk.NORMAL)  # Возвращаем кнопке исходное состояние
+
+    def switch_to_add_computer_tab(self):
+        self.root.nametowidget(self.root.winfo_children()[0].winfo_name()).select(self.tab_add_computer)
+
+    def create_add_computer_tab(self):
+        # Поля для добавления компьютера
+        self.ip_label_computer = tk.Label(self.tab_add_computer, text="IP Address", font=("Arial", 14))
+        self.ip_label_computer.pack(pady=5)
+        self.ip_entry_computer = ttk.Entry(self.tab_add_computer, font=("Arial", 14))
+        self.ip_entry_computer.pack(pady=5)
+
+        self.mac_label_computer = tk.Label(self.tab_add_computer, text="MAC Address", font=("Arial", 14))
+        self.mac_label_computer.pack(pady=5)
+        self.mac_entry_computer = ttk.Entry(self.tab_add_computer, font=("Arial", 14))
+        self.mac_entry_computer.pack(pady=5)
+
+        self.router_id_label_computer = tk.Label(self.tab_add_computer, text="Router ID", font=("Arial", 14))
+        self.router_id_label_computer.pack(pady=5)
+        self.router_id_entry_computer = ttk.Entry(self.tab_add_computer, font=("Arial", 14))
+        self.router_id_entry_computer.pack(pady=5)
+
+        self.network_name_label_computer = tk.Label(self.tab_add_computer, text="Network Name", font=("Arial", 14))
+        self.network_name_label_computer.pack(pady=5)
+        self.network_name_entry_computer = ttk.Entry(self.tab_add_computer, font=("Arial", 14))
+        self.network_name_entry_computer.pack(pady=5)
+
+        self.submit_button_computer = ttk.Button(self.tab_add_computer, text="Add Computer", command=self.submit_computer, style="TButton")
+        self.submit_button_computer.pack(pady=10)
+
+    def submit_computer(self):
+        ip = self.ip_entry_computer.get()
+        mac = self.mac_entry_computer.get()
+        router_id = self.router_id_entry_computer.get()
+        network_name = self.network_name_entry_computer.get()
+
+        if ip and mac and router_id and network_name:
+            try:
+                add_computer(ip, mac, router_id, network_name)
+                messagebox.showinfo("Success", "Computer added successfully!")
+                self.clear_computer_fields()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to add computer: {e}")
+        else:
+            messagebox.showerror("Error", "Please fill in all fields.")
+
+    def delete_computer(self):
+        selected = self.computers_listbox.curselection()  # Получаем индекс выбранного элемента
+        if not selected:
+            messagebox.showerror("Error", "Please select a computer to delete.")
+            return
+
+    # Получаем текст выбранного элемента и извлекаем ID
+        computer_info = self.computers_listbox.get(selected)
+        computer_id = computer_info.split('|')[0].strip().replace("ID: ", "")
+
+    # Подтверждение удаления
+        confirm = messagebox.askyesno("Confirm Delete", f"Are you sure you want to delete Computer ID: {computer_id}?")
+        if not confirm:
+            return
+
+        try:
+            delete_computer_by_id(computer_id)  # Вызов функции удаления
+            messagebox.showinfo("Success", f"Computer ID: {computer_id} deleted successfully!")
+            self.refresh_computers()  # Обновляем список после удаления
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to delete computer: {e}")
+
+    def switch_to_computers_tab(self):
+        self.root.nametowidget(self.root.winfo_children()[0].winfo_name()).select(self.tab_computers)
+
+    def create_dns_tab(self):
+        # Вкладка с DNS
+        self.dns_label = tk.Label(self.tab_dns, text="DNS Resolver", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
+        self.dns_label.pack(fill="x", padx=10)
+
+        self.dns_entry = ttk.Entry(self.tab_dns, font=("Arial", 14), width=30)
+        self.dns_entry.pack(pady=10)
+
+        self.dns_button = ttk.Button(self.tab_dns, text="Resolve", command=self.resolve_dns, style="TButton")
+        self.dns_button.pack(pady=10)
+
+        self.dns_result_label = tk.Label(self.tab_dns, text="Result: ", font=("Arial", 14), bg="#e0f7fa", fg="#333333")
+        self.dns_result_label.pack(pady=10)
+
+    def resolve_dns(self):
+        domain_name = self.dns_entry.get()
+        result = resolve_dns(domain_name)
+        if result:
+            self.dns_result_label.config(text=f"Result: {result}")
+        else:
+            messagebox.showerror("Error", "Domain not found!")
+
+    def create_add_router_tab(self):
+        # Поля для добавления маршрутизатора
+        self.ip_label_router = tk.Label(self.tab_add_router, text="IP Address", font=("Arial", 14))
+        self.ip_label_router.pack(pady=5)
+        self.ip_entry_router = ttk.Entry(self.tab_add_router, font=("Arial", 14))
+        self.ip_entry_router.pack(pady=5)
+
+        self.mac_label_router = tk.Label(self.tab_add_router, text="MAC Address", font=("Arial", 14))
+        self.mac_label_router.pack(pady=5)
+        self.mac_entry_router = ttk.Entry(self.tab_add_router, font=("Arial", 14))
+        self.mac_entry_router.pack(pady=5)
+
+        self.public_ip_label_router = tk.Label(self.tab_add_router, text="Public IP Address", font=("Arial", 14))
+        self.public_ip_label_router.pack(pady=5)
+        self.public_ip_entry_router = ttk.Entry(self.tab_add_router, font=("Arial", 14))
+        self.public_ip_entry_router.pack(pady=5)
+
+        self.network_name_label_router = tk.Label(self.tab_add_router, text="Network Name", font=("Arial", 14))
+        self.network_name_label_router.pack(pady=5)
+        self.network_name_entry_router = ttk.Entry(self.tab_add_router, font=("Arial", 14))
+        self.network_name_entry_router.pack(pady=5)
+
+        self.submit_router_button = ttk.Button(self.tab_add_router, text="Add Router", command=self.submit_router, style="TButton")
+        self.submit_router_button.pack(pady=10)
+
+    def submit_router(self):
+        ip = self.ip_entry_router.get()
+        mac = self.mac_entry_router.get()
+        public_ip = self.public_ip_entry_router.get()
+        network_name = self.network_name_entry_router.get()
+
+        if ip and mac and public_ip and network_name:
+            try:
+                add_router(ip, mac, public_ip, network_name)
+                messagebox.showinfo("Success", "Router added successfully!")
+                self.clear_router_fields()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to add router: {e}")
+        else:
+            messagebox.showerror("Error", "Please fill in all fields.")
+
+    def clear_computer_fields(self):
+        self.ip_entry_computer.delete(0, tk.END)
+        self.mac_entry_computer.delete(0, tk.END)
+        self.router_id_entry_computer.delete(0, tk.END)
+        self.network_name_entry_computer.delete(0, tk.END)
+
+    def clear_router_fields(self):
+        self.ip_entry_router.delete(0, tk.END)
+        self.mac_entry_router.delete(0, tk.END)
+        self.public_ip_entry_router.delete(0, tk.END)
+        self.network_name_entry_router.delete(0, tk.END)
+
+# Создание стилей для кнопок и вкладок
+def create_styles():
+    style = ttk.Style()
+
+    # Стиль для кнопок
+    style.configure("TButton",
+                    font=("Arial", 12),
+                    relief="flat",
+                    background="#ffffff",  # Белый фон по умолчанию
+                    foreground="black",     # Черный текст
+                    padding=10)
+    style.map("TButton", background=[("active", "#f2f2f2")])  # Изменение цвета при наведении
+
+    # Стиль для вкладок
+    style.configure("TNotebook", padding=5, background="#0097A7", width=400, height=300)
+
+# Запуск приложения
+if __name__ == "__main__":
+    root = tk.Tk()
+    create_styles()  # Применяем стили для кнопок
+    app = MyApp(root)
+    root.mainloop()
