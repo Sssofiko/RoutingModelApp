@@ -33,6 +33,10 @@ class MyApp:
         self.create_add_router_tab()
         self.create_routers_tab()  # Создаем вкладку маршрутизаторов
 
+        self.tab_simulation = ttk.Frame(tab_control)  # Новая вкладка Simulation
+        tab_control.add(self.tab_simulation, text="Simulation", padding=10)
+        self.create_simulation_tab()  # Создаём вкладку Simulation
+
     def create_routers_tab(self):
         self.routers_label = tk.Label(self.tab_routers, text="Routers List", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
         self.routers_label.pack(fill="x", padx=10)
@@ -323,6 +327,64 @@ class MyApp:
         self.mac_entry_router.delete(0, tk.END)
         self.public_ip_entry_router.delete(0, tk.END)
         self.network_name_entry_router.delete(0, tk.END)
+
+    def create_simulation_tab(self):
+        # Заголовок вкладки
+        self.simulation_label = tk.Label(self.tab_simulation, text="Simulation", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
+        self.simulation_label.pack(fill="x", padx=10)
+
+        # Выпадающий список для IP компьютеров
+        self.computer_ip_label = tk.Label(self.tab_simulation, text="Select Computer IP", font=("Arial", 14))
+        self.computer_ip_label.pack(pady=5)
+        self.computer_ip_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
+        self.computer_ip_combobox.pack(pady=5)
+
+        # Выпадающий список для IP маршрутизаторов
+        self.router_ip_label = tk.Label(self.tab_simulation, text="Select Router IP", font=("Arial", 14))
+        self.router_ip_label.pack(pady=5)
+        self.router_ip_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
+        self.router_ip_combobox.pack(pady=5)
+
+        # Поле для вывода информации
+        self.simulation_output_label = tk.Label(self.tab_simulation, text="Output", font=("Arial", 14))
+        self.simulation_output_label.pack(pady=5)
+        self.simulation_output_text = tk.Text(self.tab_simulation, font=("Arial", 12), height=10, width=50, state="disabled", wrap="word")
+        self.simulation_output_text.pack(pady=5)
+
+        # Кнопка для выполнения симуляции
+        self.simulate_button = ttk.Button(self.tab_simulation, text="Run Simulation", command=self.run_simulation, style="TButton")
+        self.simulate_button.pack(pady=10)
+
+        # Заполняем выпадающие списки
+        self.populate_simulation_dropdowns()
+
+    def populate_simulation_dropdowns(self):
+        """Заполняет выпадающие списки IP-адресами компьютеров и маршрутизаторов."""
+        # Получаем список компьютеров и маршрутизаторов
+        computer_ips = [comp[1] for comp in list_computers()]  # IP-адреса компьютеров
+        router_ips = [router[1] for router in list_routers()]  # IP-адреса маршрутизаторов
+
+        # Заполняем выпадающие списки
+        self.computer_ip_combobox["values"] = computer_ips
+        self.router_ip_combobox["values"] = router_ips
+
+    def run_simulation(self):
+        """Выполняет симуляцию и выводит результат."""
+        computer_ip = self.computer_ip_combobox.get()
+        router_ip = self.router_ip_combobox.get()
+
+        if not computer_ip or not router_ip:
+            messagebox.showerror("Error", "Please select both a Computer IP and a Router IP.")
+            return
+
+        # МАТВЕЙ ТЕБЕ СЮДА ПИСАТЬ КУ-КУ - код для обработки симуляции здесь
+        simulation_result = f"Simulating connection between Computer IP: {computer_ip} and Router IP: {router_ip}"
+
+        # Выводим результат в текстовое поле
+        self.simulation_output_text.config(state="normal")
+        self.simulation_output_text.delete(1.0, tk.END)  # Очищаем предыдущее содержимое
+        self.simulation_output_text.insert(tk.END, simulation_result)
+        self.simulation_output_text.config(state="disabled")  # Запрещаем редактирование
 
 # Создание стилей для кнопок и вкладок
 def create_styles():
