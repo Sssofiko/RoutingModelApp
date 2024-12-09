@@ -1,6 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from db_connection import list_computers, add_computer, add_router, resolve_dns, delete_computer_by_id, update_computer, list_routers, delete_router_by_id, get_computer_by_id  # Не забывайте создать функцию add_router
+from db_connection import *  # Не забывайте создать функцию add_router
+
+import networkx as nx
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 class MyApp:
     def __init__(self, root):
@@ -8,7 +12,8 @@ class MyApp:
         self.root.title("Network Management App")
         self.root.geometry("900x600")  # Увеличенное окно
         self.root.config(bg="#e0f7fa")  # Фон приложения
-        self.root.iconbitmap("assets/icon.ico")  # Иконка приложения
+        #self.root.iconbitmap("assets/icon.ico")  # Иконка приложения
+        self.G = nx.Graph()  # Инициализация графа
         self.create_tabs()
 
     def create_tabs(self):
@@ -18,12 +23,14 @@ class MyApp:
         self.tab_add_computer = ttk.Frame(tab_control)
         self.tab_add_router = ttk.Frame(tab_control)
         self.tab_routers = ttk.Frame(tab_control)  # Новая вкладка для маршрутизаторов
+        self.tab_network_graph = ttk.Frame(tab_control)  # Новая вкладка для графа
 
         tab_control.add(self.tab_computers, text="Computers", padding=10)
         tab_control.add(self.tab_dns, text="DNS Resolver", padding=10)
         tab_control.add(self.tab_add_computer, text="Add Computer", padding=10)
         tab_control.add(self.tab_add_router, text="Add Router", padding=10)
         tab_control.add(self.tab_routers, text="Routers", padding=10)  # Добавляем вкладку маршрутизаторов
+        tab_control.add(self.tab_network_graph, text="Network Graph", padding=10)  # Добавляем новую вкладку
 
         tab_control.pack(expand=1, fill="both", padx=20, pady=20)
 
@@ -32,6 +39,7 @@ class MyApp:
         self.create_add_computer_tab()
         self.create_add_router_tab()
         self.create_routers_tab()  # Создаем вкладку маршрутизаторов
+        self.create_network_graph_tab()  # Создаем вкладку для графа
 
     def create_routers_tab(self):
         self.routers_label = tk.Label(self.tab_routers, text="Routers List", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
@@ -323,6 +331,36 @@ class MyApp:
         self.mac_entry_router.delete(0, tk.END)
         self.public_ip_entry_router.delete(0, tk.END)
         self.network_name_entry_router.delete(0, tk.END)
+
+    def create_network_graph_tab(self):
+        self.network_graph_label = tk.Label(self.tab_network_graph, text="Network Graph", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
+        self.network_graph_label.pack(fill="x", padx=10)
+
+        # Создаем граф
+        self.G = nx.Graph()
+
+        # Получаем данные из базы данных
+        computers = list_computers_with_router()
+        routers = list_routers()
+        #Добавляем узлы для роутеров
+        for router in routers:
+            self.G.add_node(f"Router {router[0]}", type="router")
+
+        # Добавляем узлы для компьютеров и связи с роутерами
+        for computer in computers:
+            self.G.add_node(f"Computer {computer[0]}", type="computer")
+            self.G.add_edge(f"Router {computer[3]}", f"Computer {computer[0]}")
+
+        # Рисуем граф
+        pos = nx.spring_layout(self.G)
+        fig, ax = plt.subplots(figsize=(8, 6))
+        nx.draw(self.G, pos, with_labels=True, node_color=['red' if data['type'] == 'router' else 'blue' for node, data in self.G.nodes(data=True)], ax=ax)
+
+        # Встраиваем граф в Tkinter
+        canvas = FigureCanvasTkAgg(fig, master=self.tab_network_graph)
+        canvas.draw()
+        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
 
 # Создание стилей для кнопок и вкладок
 def create_styles():

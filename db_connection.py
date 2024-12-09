@@ -52,6 +52,10 @@ def list_computers():
     query = "SELECT id, ip_address, mac_address FROM computer"
     return execute_query(query)
 
+def list_computers_with_router():
+    query = "SELECT id, ip_address, mac_address, router_id FROM computer"
+    return execute_query(query)
+
 # Функция для выполнения запросов
 def execute_query(query, params=None):
     conn = get_db_connection()
