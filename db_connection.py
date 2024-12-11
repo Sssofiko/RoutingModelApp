@@ -49,7 +49,14 @@ def add_router(ip_address, mac_address, public_ip_address, network_name):
 
 # Функция для получения списка компьютеров
 def list_computers():
-    query = "SELECT id, ip_address, mac_address FROM computer"
+    """
+    Возвращает список компьютеров с их данными и публичным IP маршрутизатора.
+    """
+    query = """
+        SELECT c.id, c.ip_address, c.mac_address, r.public_ip_address
+        FROM computer c
+        LEFT JOIN router r ON c.router_id = r.id
+    """
     return execute_query(query)
 
 # Функция для выполнения запросов
@@ -70,7 +77,7 @@ def resolve_dns(domain_name):
     return result[0][0] if result else None
 
 def list_routers():
-    query = "SELECT id, ip_address, mac_address FROM router"
+    query = "SELECT id, ip_address, mac_address, public_ip_address, network_name FROM router"
     return execute_query(query)
 
 def delete_router_by_id(router_id):
@@ -96,6 +103,18 @@ def get_computer_by_id(computer_id):
     """
     result = execute_query(query, (computer_id,))
     return result[0] if result else None
+
+def get_router_id_by_public_ip(public_ip):
+    """Получает ID маршрутизатора по его публичному IP."""
+    query = "SELECT id FROM router WHERE public_ip_address = %s"
+    result = execute_query(query, (public_ip,))
+    return result[0][0] if result else None
+
+def get_router_public_ip_by_id(router_id):
+    """Получает публичный IP маршрутизатора по его ID."""
+    query = "SELECT public_ip_address FROM router WHERE id = %s"
+    result = execute_query(query, (router_id,))
+    return result[0][0] if result else None
 
 def update_computer(computer_id, ip_address, mac_address, router_id, network_name):
     query = """
