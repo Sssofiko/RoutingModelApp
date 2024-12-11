@@ -8,7 +8,7 @@ class MyApp:
         self.root.title("Network Management App")
         self.root.geometry("900x600")  # Увеличенное окно
         self.root.config(bg="#e0f7fa")  # Фон приложения
-        self.root.iconbitmap("assets/icon.ico")  # Иконка приложения
+        #self.root.iconbitmap("assets/icon.ico")  # Иконка приложения
         self.create_tabs()
 
     def create_tabs(self):

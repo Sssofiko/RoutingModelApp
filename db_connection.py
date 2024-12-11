@@ -115,3 +115,51 @@ def update_computer(computer_id, ip_address, mac_address, router_id, network_nam
     finally:
         cursor.close()
         conn.close()
+
+def find_computer_id(computer_ip, network_name):
+    query = f"SELECT id FROM computer WHERE ip_address = {computer_ip} AND network_name = {network_name}"
+    return execute_query(query)
+
+def find_router_mac_by_network(network_name):
+    query = f"SELECT mac_address FROM router WHERE network_name = {network_name}"
+    return execute_query(query)[0]
+
+def find_router_ip_by_network(network_name):
+    query = f"SELECT ip_address FROM router WHERE network_name = {network_name}"
+    return execute_query(query)[0]
+
+def find_record_in_arp_table(device_id, ip_to_find):
+    query = f"SELECT mac_address FROM arp_table WHERE device_id = {device_id} AND ip_address = {ip_to_find}"
+    return execute_query(query)
+
+def add_record_to_arp_table(device_id, ip_address, mac_address):
+    query = "INSERT INTO arp_table (ip_address, mac_address, device_id) VALUES (%s, %s, %s)"
+    params = (ip_address, mac_address, device_id)
+    return execute_query(query, params)
+
+def route_file_to_server(computer_ip, computer_network, domain_name):
+    computer_id = find_computer_id(computer_ip, computer_network)
+
+    log = 'File transmission started'
+    log += f'Source: {computer_ip} in {computer_network}. Destination: {domain_name}'
+
+    destination_ip = resolve_dns(domain_name)
+    log += f'[UDP] DNS request: who has domain name {domain_name}?'
+    log += f'[UDP] DNS response: {destination_ip}'
+
+    router_ip = find_router_ip_by_network(computer_network)
+    log += f'[ARP] Trying to find router ip ({router_ip}) in ARP table'
+    arp_table_res = find_record_in_arp_table(computer_id, domain_name)
+
+    if arp_table_res:
+        router_mac = arp_table_res[0]
+        log += f'[ARP] Record found. Router mac: {router_mac}'
+    else:
+        log += f'[ARP] No record found. Starting broadcast'
+        log += f'[ARP] Who has ip {router_ip}? Tell {computer_ip}'
+        router_mac = find_router_mac_by_network(computer_network)
+        log += f'[ARP] Mac received. Router mac: {router_mac}'
+        add_record_to_arp_table(computer_id, router_ip, router_mac)
+        log += f'[ARP] Record added to arp table'
+
+    return
