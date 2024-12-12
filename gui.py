@@ -14,7 +14,6 @@ class MyApp:
     def create_tabs(self):
         tab_control = ttk.Notebook(self.root)
         self.tab_computers = ttk.Frame(tab_control)
-        self.tab_dns = ttk.Frame(tab_control)
         self.tab_add_computer = ttk.Frame(tab_control)
         self.tab_add_router = ttk.Frame(tab_control)
         self.tab_routers = ttk.Frame(tab_control)  # Новая вкладка для маршрутизаторов
@@ -23,11 +22,9 @@ class MyApp:
         tab_control.add(self.tab_add_computer, text="Add Computer", padding=10)
         tab_control.add(self.tab_routers, text="Routers", padding=10)  # Добавляем вкладку маршрутизаторов
         tab_control.add(self.tab_add_router, text="Add Router", padding=10)
-        tab_control.add(self.tab_dns, text="DNS Resolver", padding=10)
         tab_control.pack(expand=1, fill="both", padx=20, pady=20)
 
         self.create_computers_tab()
-        self.create_dns_tab()
         self.create_add_computer_tab()
         self.create_add_router_tab()
         self.create_routers_tab()  # Создаем вкладку маршрутизаторов
@@ -286,28 +283,6 @@ class MyApp:
     def switch_to_computers_tab(self):
         self.root.nametowidget(self.root.winfo_children()[0].winfo_name()).select(self.tab_computers)
 
-    def create_dns_tab(self):
-        # Вкладка с DNS
-        self.dns_label = tk.Label(self.tab_dns, text="DNS Resolver", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
-        self.dns_label.pack(fill="x", padx=10)
-
-        self.dns_entry = ttk.Entry(self.tab_dns, font=("Arial", 14), width=30)
-        self.dns_entry.pack(pady=10)
-
-        self.dns_button = ttk.Button(self.tab_dns, text="Resolve", command=self.resolve_dns, style="TButton")
-        self.dns_button.pack(pady=10)
-
-        self.dns_result_label = tk.Label(self.tab_dns, text="Result: ", font=("Arial", 14), bg="#e0f7fa", fg="#333333")
-        self.dns_result_label.pack(pady=10)
-
-    def resolve_dns(self):
-        domain_name = self.dns_entry.get()
-        result = resolve_dns(domain_name)
-        if result:
-            self.dns_result_label.config(text=f"Result: {result}")
-        else:
-            messagebox.showerror("Error", "Domain not found!")
-
     def create_add_router_tab(self):
         # Поля для добавления маршрутизатора
         self.ip_label_router = tk.Label(self.tab_add_router, text="IP Address", font=("Arial", 14))
@@ -390,15 +365,13 @@ class MyApp:
         self.server_domain_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
         self.server_domain_combobox.pack(pady=5)
 
-        # Поле для вывода информации
-        self.simulation_output_label = tk.Label(self.tab_simulation, text="Output", font=("Arial", 14))
-        self.simulation_output_label.pack(pady=5)
-        self.simulation_output_text = tk.Text(self.tab_simulation, font=("Arial", 12), height=10, width=50, state="disabled", wrap="word")
-        self.simulation_output_text.pack(pady=5)
-
         # Кнопка для выполнения симуляции
         self.simulate_button = ttk.Button(self.tab_simulation, text="Run Simulation", command=self.run_simulation, style="TButton")
         self.simulate_button.pack(pady=10)
+
+        # Поле для вывода информации
+        self.simulation_output_text = tk.Text(self.tab_simulation, font=("Arial", 12), height=10, width=90, state="disabled", wrap="word")
+        self.simulation_output_text.pack(pady=5)
 
         # Заполняем выпадающие списки
         self.populate_simulation_dropdowns()
@@ -406,7 +379,7 @@ class MyApp:
     def populate_simulation_dropdowns(self):
         """Заполняет выпадающие списки IP-адресами компьютеров, доменными именами серверов и уникальными network_name для роутеров."""
         # Получаем список IP-адресов компьютеров
-        computer_ips = [comp[1] for comp in list_computers()]  # IP-адреса компьютеров
+        computer_ips = list(set(comp[1] for comp in list_computers()))  # IP-адреса компьютеров
 
         # Получаем список уникальных названий сетей (network_name) для роутеров
         router_network_names = list(set([router[4] for router in list_routers() if router[4]]))  # Уникальные Network Name для роутеров
@@ -418,6 +391,34 @@ class MyApp:
         self.computer_ip_combobox["values"] = computer_ips
         self.server_domain_combobox["values"] = domain_names  # Заполняем доменами из dns_table
         self.network_name_combobox["values"] = router_network_names  # Уникальные network_name для роутеров
+
+    def apply_protocol_colors(self, text_widget, log):
+        """
+        Применяет цвета к логу
+        """
+        # Define tags for protocol colors
+        text_widget.tag_config('UDP', foreground='#228B22')  # BrightGreen
+        text_widget.tag_config('ARP', foreground='#0000FF')  # Blue
+        text_widget.tag_config('TCP', foreground='#FF0000')  # Red
+        text_widget.tag_config('NAT', foreground='#8A2BE2')  # BlueViolet (unchanged)
+        text_widget.tag_config('HTTP', foreground='#00008B')  # DarkBlue
+
+        index = '1.0'
+        for line in log.split('\n'):
+            if '[UDP]' in line:
+                text_widget.insert(index, line + '\n', 'UDP')
+            elif '[ARP]' in line:
+                text_widget.insert(index, line + '\n', 'ARP')
+            elif '[TCP]' in line:
+                text_widget.insert(index, line + '\n', 'TCP')
+            elif '[NAT]' in line:
+                text_widget.insert(index, line + '\n', 'NAT')
+            elif '[HTTP]' in line:
+                text_widget.insert(index, line + '\n', 'HTTP')
+            else:
+                text_widget.insert(index, line + '\n')  # No protocol tag, default color
+            index = text_widget.index('insert')
+
     def run_simulation(self):
         """Выполняет симуляцию и выводит результат."""
         computer_ip = self.computer_ip_combobox.get()
@@ -428,20 +429,18 @@ class MyApp:
             messagebox.showerror("Error", "Please select a Computer IP, Server Domain, and Network Name.")
             return
 
-        # Получаем IP адрес роутера по доменному имени
-        router_ip = resolve_dns(domain_name)
-
-        if not router_ip:
-            messagebox.showerror("Error", f"No IP address found for domain: {domain_name}")
+        computer_id = find_computer_id(network_name, computer_ip)
+        if not computer_id:
+            messagebox.showerror("Error", f"No computer with IP {computer_ip} found in network '{network_name}'.")
             return
 
         # Код для симуляции
-        simulation_result = f"Simulating connection between Computer IP: {computer_ip}, Router IP: {router_ip}, Network Name: {network_name}"
+        simulation_result = route_file_to_server(computer_ip, network_name, domain_name)
 
         # Выводим результат в текстовое поле
         self.simulation_output_text.config(state="normal")
         self.simulation_output_text.delete(1.0, tk.END)  # Очищаем предыдущее содержимое
-        self.simulation_output_text.insert(tk.END, simulation_result)
+        self.apply_protocol_colors(self.simulation_output_text, simulation_result)
         self.simulation_output_text.config(state="disabled")  # Запрещаем редактирование
 
 # Создание стилей для кнопок и вкладок
