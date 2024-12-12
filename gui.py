@@ -390,10 +390,12 @@ class MyApp:
         self.server_domain_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
         self.server_domain_combobox.pack(pady=5)
 
+        # Кнопка для выполнения симуляции
+        self.simulate_button = ttk.Button(self.tab_simulation, text="Run Simulation", command=self.run_simulation, style="TButton")
+        self.simulate_button.pack(pady=10)
+
         # Поле для вывода информации
-        self.simulation_output_label = tk.Label(self.tab_simulation, text="Output", font=("Arial", 14))
-        self.simulation_output_label.pack(pady=5)
-        self.simulation_output_text = tk.Text(self.tab_simulation, font=("Arial", 12), height=10, width=50, state="disabled", wrap="word")
+        self.simulation_output_text = tk.Text(self.tab_simulation, font=("Arial", 12), height=10, width=90, state="disabled", wrap="word")
         self.simulation_output_text.pack(pady=5)
 
         # Кнопка для выполнения симуляции
@@ -428,15 +430,13 @@ class MyApp:
             messagebox.showerror("Error", "Please select a Computer IP, Server Domain, and Network Name.")
             return
 
-        # Получаем IP адрес роутера по доменному имени
-        router_ip = resolve_dns(domain_name)
-
-        if not router_ip:
-            messagebox.showerror("Error", f"No IP address found for domain: {domain_name}")
+        computer_id = find_computer_id(network_name, computer_ip)
+        if not computer_id:
+            messagebox.showerror("Error", f"No computer with IP {computer_ip} found in network '{network_name}'.")
             return
 
         # Код для симуляции
-        simulation_result = f"Simulating connection between Computer IP: {computer_ip}, Router IP: {router_ip}, Network Name: {network_name}"
+        simulation_result = route_file_to_server(computer_ip, network_name, domain_name)
 
         # Выводим результат в текстовое поле
         self.simulation_output_text.config(state="normal")

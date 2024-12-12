@@ -9,16 +9,19 @@ def get_db_connection():
         port="5433"        # стандартный порт PostgreSQL
     )
 
+def execute_query_without_return(query, params=None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 # Функция для добавления нового компьютера
 def add_computer(ip_address, mac_address, router_id):
     query = "INSERT INTO computer (ip_address, mac_address, router_id) VALUES (%s, %s, %s)"
     params = (ip_address, mac_address, router_id)
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(query, params)
-    conn.commit()  # Подтверждаем изменения
-    cursor.close()
-    conn.close()
+    execute_query_without_return(query, params)
 
 def delete_computer_by_id(computer_id):
     query = "DELETE FROM computer WHERE id = %s"
@@ -152,30 +155,43 @@ def update_computer(computer_id, ip_address, mac_address, router_id):
         cursor.close()
         conn.close()
 
-def find_computer_id(computer_ip, network_name):
-    query = f"SELECT id FROM computer WHERE ip_address = {computer_ip} AND network_name = {network_name}"
-    return execute_query(query)
+def find_computer_id(network_name, computer_ip):
+    query = '''SELECT c.id 
+                FROM computer c join router r on c.router_id = r.id 
+                WHERE c.ip_address = %s 
+                AND network_name = %s'''
+    params = (computer_ip, network_name)
+    return execute_query(query, params)[0]
 
 def find_router_mac_by_network(network_name):
-    query = f"SELECT mac_address FROM router WHERE network_name = {network_name}"
-    return execute_query(query)[0]
+    query = "SELECT mac_address FROM router WHERE network_name = %s"
+    params = (network_name,)
+    return execute_query(query, params)[0]
 
 def find_router_ip_by_network(network_name):
-    query = f"SELECT ip_address FROM router WHERE network_name = {network_name}"
-    return execute_query(query)[0]
+    query = "SELECT ip_address FROM router WHERE network_name = %s"
+    params = (network_name,)
+    return execute_query(query, params)[0][0]
 
 def find_router_id_by_network(network_name):
-    query = f"SELECT id FROM router WHERE network_name = {network_name}"
-    return execute_query(query)[0]
+    query = "SELECT id FROM router WHERE network_name = %s"
+    params = (network_name,)
+    return execute_query(query, params)[0]
 
 def find_record_in_arp_table(device_id, ip_to_find):
-    query = f"SELECT mac_address FROM arp_table WHERE device_id = {device_id} AND ip_address = {ip_to_find}"
-    return execute_query(query)
+    query = '''SELECT mac_address 
+                FROM arp_table 
+                WHERE device_id = %s 
+                AND ip_address = %s
+                ORDER BY created_at DESC
+                LIMIT 1'''
+    params = (device_id, ip_to_find)
+    return execute_query(query, params)[0]
 
 def add_record_to_arp_table(device_id, ip_address, mac_address):
     query = "INSERT INTO arp_table (ip_address, mac_address, device_id) VALUES (%s, %s, %s)"
     params = (ip_address, mac_address, device_id)
-    return execute_query(query, params)
+    return execute_query_without_return(query, params)
 
 def generate_port_number(router_id, computer_ip):
     query = '''SELECT MAX(public_port) + 1
@@ -183,7 +199,8 @@ def generate_port_number(router_id, computer_ip):
                 WHERE router_id = %s
                 AND internal_ip_address = %s'''
     params = (router_id, computer_ip)
-    return execute_query(query, params)
+    port = execute_query(query, params)
+    return port[0][0] if port[0][0] else 1
 
 def add_record_to_nat_table(network_name, computer_ip, computer_port):
     router_id = find_router_id_by_network(network_name)
@@ -196,7 +213,7 @@ def add_record_to_nat_table(network_name, computer_ip, computer_port):
                                       public_port)
                VALUES (%s, %s, %s, %s, %s)'''
     params = (router_id, computer_ip, computer_port, router_public_ip, public_port)
-    execute_query(query, params)
+    execute_query_without_return(query, params)
     return router_public_ip, public_port
 
 def find_record_in_nat_table(public_ip, public_port):
@@ -208,45 +225,55 @@ def find_record_in_nat_table(public_ip, public_port):
     return execute_query(query, params)[0]
 
 def route_file_to_server(computer_ip, computer_network, domain_name, port = 80):
-    computer_id = find_computer_id(computer_ip, computer_network)
+    log = 'File transmission started\n'
+    computer_id = find_computer_id(computer_network, computer_ip)
+    if not computer_id:
+        log += 'No computer found'
+        return log
 
-    log = 'File transmission started'
-    log += f'Source: {computer_ip} in {computer_network}. Destination: {domain_name}\n'
+    log += f'Source: {computer_ip} in {computer_network}. Destination: {domain_name}\n\n'
 
+    log += f'[UDP] DNS request: who has domain name {domain_name}?\n'
     destination_ip = resolve_dns(domain_name)
-    log += f'[UDP] DNS request: who has domain name {domain_name}?'
-    log += f'[UDP] DNS response: {destination_ip}\n'
+    if not destination_ip:
+        log += 'No domain name found\n'
+        return log
+
+    log += f'[UDP] DNS response: {destination_ip}\n\n'
 
     router_ip = find_router_ip_by_network(computer_network)
-    log += f'[ARP] Trying to find router ip ({router_ip}) in ARP table'
-    arp_table_res = find_record_in_arp_table(computer_id, domain_name)
+    if not router_ip:
+        log += 'Computer is not connected to a router'
+        return log
+
+    log += f'[ARP] Trying to find router ip {router_ip} in ARP table\n'
+    arp_table_res = find_record_in_arp_table(computer_id, router_ip)
 
     if arp_table_res:
-        router_mac = arp_table_res[0]
-        log += f'[ARP] Record found. Router mac: {router_mac}\n'
+        router_mac = arp_table_res[-1]
+        log += f'[ARP] Record found. Router mac: {router_mac}\n\n'
     else:
-        log += f'[ARP] No record found. Starting broadcast'
-        log += f'[ARP] Who has ip {router_ip}? Tell {computer_ip}'
+        log += f'[ARP] No record found. Starting broadcast\n'
+        log += f'[ARP] Who has ip {router_ip}? Tell {computer_ip}\n'
         router_mac = find_router_mac_by_network(computer_network)
-        log += f'[ARP] Mac received. Router mac: {router_mac}'
+        log += f'[ARP] Mac received. Router mac: {router_mac}\n'
         add_record_to_arp_table(computer_id, router_ip, router_mac)
-        log += f'[ARP] Record added to arp table\n'
+        log += f'[ARP] Record added to arp table\n\n'
 
-    log += f'[TCP] Initiating 3-way handshake'
-    log += f'[NAT] SYN packet sent to router. Starting address translation. Local ip: {computer_ip}. Local port: {port}'
+    log += f'[TCP] Initiating 3-way handshake\n'
+    log += f'[NAT] SYN packet sent to router. Starting address translation. Local ip: {computer_ip}. Local port: {port}\n'
     public_ip, public_port = add_record_to_nat_table(computer_network, computer_ip, port)
-    log += f'[NAT] Record added to nat table. Public ip: {public_ip}. Public port: {public_port}\n'
+    log += f'[NAT] Record added to nat table. Public IP: {public_ip}. Public port: {public_port}\n\n'
 
-    log += f'[TCP] SYN packet received by {destination_ip} on port {port} successfully. Sending SYN-ACK to {public_ip, public_port}'
-    log += f'[TCP] SYN-ACK received by {public_ip} on port {public_port} successfully'
-    log += f'[NAT] Translating into local ip and port'
+    log += f'[TCP] SYN packet received by {destination_ip} on port {port} successfully. Sending SYN-ACK to {public_ip}:{public_port}\n'
+    log += f'[TCP] SYN-ACK received by {public_ip} on port {public_port} successfully\n'
+    log += f'[NAT] Translating into local computer IP and port\n'
     private_ip, private_port = find_record_in_nat_table(public_ip, public_port)
-    log += f'[NAT] Record in table found. Local ip: {private_ip}. Local port: {private_port}'
-    log += f'[TCP] SYN-ACK received. Sending ACK to {destination_ip} on port {port}'
-    log += '...'
-    log += '[TCP] Connection established successfully'
-    log += f'[HTTP] Sending file from {private_ip} to {destination_ip} on port {port}'
-    log += f'[HTTP] File received by {destination_ip} on port {port} successfully'
-    log += f'[TCP] Connection closed via a 4-way handshake successfully'
+    log += f'[NAT] Record in table found. Local ip: {private_ip}. Local port: {private_port}\n'
+    log += f'[TCP] SYN-ACK received. Sending ACK to {destination_ip}:{port}\n'
+    log += '[TCP] Connection established successfully\n'
+    log += f'[HTTP] Sending file from {private_ip} to {destination_ip} on port {port}\n'
+    log += f'[HTTP] File received by {destination_ip} on port {port} successfully\n'
+    log += f'[TCP] Connection closed via a 4-way handshake successfully\n'
 
     return log
