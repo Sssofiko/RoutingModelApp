@@ -37,15 +37,32 @@ def delete_computer_by_id(computer_id):
         conn.close()
 
 # Функция для добавления нового маршрутизатора
-def add_router(ip_address, mac_address, public_ip_address, network_name):
-    query = "INSERT INTO router (ip_address, mac_address, public_ip_address, network_name) VALUES (%s, %s, %s, %s)"
-    params = (ip_address, mac_address, public_ip_address, network_name)
+def add_router(ip_address, mac_address, public_ip_address, network_name, domain_name=None):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(query, params)
-    conn.commit()  # Подтверждаем изменения
-    cursor.close()
-    conn.close()
+    try:
+        # Добавляем маршрутизатор
+        query_router = """
+            INSERT INTO router (ip_address, mac_address, public_ip_address, network_name)
+            VALUES (%s, %s, %s, %s) RETURNING id
+        """
+        cursor.execute(query_router, (ip_address, mac_address, public_ip_address, network_name))
+
+        # Если доменное имя указано, добавляем его в таблицу DNS
+        if domain_name:
+            query_dns = """
+                INSERT INTO dns_table (domain_name, ip_address)
+                VALUES (%s, %s)
+            """
+            cursor.execute(query_dns, (domain_name, ip_address))
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
 
 # Функция для получения списка компьютеров
 def list_computers():

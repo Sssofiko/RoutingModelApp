@@ -331,6 +331,12 @@ class MyApp:
         self.network_name_entry_router = ttk.Entry(self.tab_add_router, font=("Arial", 14))
         self.network_name_entry_router.pack(pady=5)
 
+        # Поле ввода доменного имени (опционально)
+        self.router_domain_name_label = tk.Label(self.tab_add_router, text="Domain Name (Optional)", font=("Arial", 14))
+        self.router_domain_name_label.pack(pady=5)
+        self.router_domain_name_entry = tk.Entry(self.tab_add_router, font=("Arial", 14))
+        self.router_domain_name_entry.pack(pady=5)
+
         self.submit_router_button = ttk.Button(self.tab_add_router, text="Add Router", command=self.submit_router, style="TButton")
         self.submit_router_button.pack(pady=10)
 
@@ -339,10 +345,11 @@ class MyApp:
         mac = self.mac_entry_router.get()
         public_ip = self.public_ip_entry_router.get()
         network_name = self.network_name_entry_router.get()
+        domain_name = self.router_domain_name_entry.get()
 
         if ip and mac and public_ip and network_name:
             try:
-                add_router(ip, mac, public_ip, network_name)
+                add_router(ip, mac, public_ip, network_name, domain_name)
                 messagebox.showinfo("Success", "Router added successfully!")
                 self.clear_router_fields()
             except Exception as e:
@@ -359,6 +366,7 @@ class MyApp:
         self.mac_entry_router.delete(0, tk.END)
         self.public_ip_entry_router.delete(0, tk.END)
         self.network_name_entry_router.delete(0, tk.END)
+        self.router_domain_name_entry.delete(0, tk.END)
 
     def create_simulation_tab(self):
         # Заголовок вкладки
