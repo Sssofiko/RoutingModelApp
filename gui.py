@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from db_connection import list_computers, add_computer, add_router, resolve_dns, delete_computer_by_id, update_computer, list_routers, delete_router_by_id, get_computer_by_id, get_router_public_ip_by_id, get_router_id_by_public_ip  # Не забывайте создать функцию add_router
+from db_connection import execute_query, list_computers, add_computer, add_router, resolve_dns, delete_computer_by_id, update_computer, list_routers, delete_router_by_id, get_computer_by_id, get_router_public_ip_by_id, get_router_id_by_public_ip  # Не забывайте создать функцию add_router
 
 class MyApp:
     def __init__(self, root):
@@ -379,8 +379,8 @@ class MyApp:
         self.computer_ip_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
         self.computer_ip_combobox.pack(pady=5)
 
-        # Выпадающий список для домена сервера (IP маршрутизатора)
-        self.server_domain_label = tk.Label(self.tab_simulation, text="Select Server Domain (Router IP)", font=("Arial", 14))
+        # Выпадающий список для домена сервера (domain_name из dns_table)
+        self.server_domain_label = tk.Label(self.tab_simulation, text="Select Server Domain (Domain Name)", font=("Arial", 14))
         self.server_domain_label.pack(pady=5)
         self.server_domain_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
         self.server_domain_combobox.pack(pady=5)
@@ -405,29 +405,35 @@ class MyApp:
         self.populate_simulation_dropdowns()
 
     def populate_simulation_dropdowns(self):
-        """Заполняет выпадающие списки IP-адресами компьютеров и маршрутизаторов, а также уникальными network_name для роутеров."""
+        """Заполняет выпадающие списки IP-адресами компьютеров, доменными именами серверов и уникальными network_name для роутеров."""
         # Получаем список IP-адресов компьютеров
         computer_ips = [comp[1] for comp in list_computers()]  # IP-адреса компьютеров
 
         # Получаем список уникальных названий сетей (network_name) для роутеров
         router_network_names = list(set([router[4] for router in list_routers() if router[4]]))  # Уникальные Network Name для роутеров
 
-        # Получаем список IP-адресов маршрутизаторов
-        router_ips = [router[1] for router in list_routers()]  # IP-адреса маршрутизаторов
+        # Получаем список доменных имен из таблицы dns_table
+        domain_names = [domain[0] for domain in execute_query("SELECT domain_name FROM dns_table")]
 
         # Заполняем выпадающие списки
         self.computer_ip_combobox["values"] = computer_ips
-        self.server_domain_combobox["values"] = router_ips
+        self.server_domain_combobox["values"] = domain_names  # Заполняем доменами из dns_table
         self.network_name_combobox["values"] = router_network_names  # Уникальные network_name для роутеров
-
     def run_simulation(self):
         """Выполняет симуляцию и выводит результат."""
         computer_ip = self.computer_ip_combobox.get()
-        router_ip = self.server_domain_combobox.get()
+        domain_name = self.server_domain_combobox.get()
         network_name = self.network_name_combobox.get()
 
-        if not computer_ip or not router_ip or not network_name:
-            messagebox.showerror("Error", "Please select a Computer IP, Router IP, and Network Name.")
+        if not computer_ip or not domain_name or not network_name:
+            messagebox.showerror("Error", "Please select a Computer IP, Server Domain, and Network Name.")
+            return
+
+        # Получаем IP адрес роутера по доменному имени
+        router_ip = resolve_dns(domain_name)
+
+        if not router_ip:
+            messagebox.showerror("Error", f"No IP address found for domain: {domain_name}")
             return
 
         # Код для симуляции
