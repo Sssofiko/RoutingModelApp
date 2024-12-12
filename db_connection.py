@@ -70,7 +70,7 @@ def list_computers():
     Возвращает список компьютеров с их данными и публичным IP маршрутизатора.
     """
     query = """
-        SELECT c.id, c.ip_address, c.mac_address, r.public_ip_address
+        SELECT c.id, c.ip_address, c.mac_address, r.network_name
         FROM computer c
         LEFT JOIN router r ON c.router_id = r.id
     """
@@ -114,7 +114,7 @@ def delete_router_by_id(router_id):
 def get_computer_by_id(computer_id):
     """Получает данные компьютера по ID."""
     query = """
-        SELECT ip_address, mac_address, router_id, network_name
+        SELECT ip_address, mac_address, router_id
         FROM computer
         WHERE id = %s
     """
