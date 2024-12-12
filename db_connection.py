@@ -161,22 +161,26 @@ def find_computer_id(network_name, computer_ip):
                 WHERE c.ip_address = %s 
                 AND network_name = %s'''
     params = (computer_ip, network_name)
-    return execute_query(query, params)[0]
+    res = execute_query(query, params)
+    return res[0] if res else None
 
 def find_router_mac_by_network(network_name):
     query = "SELECT mac_address FROM router WHERE network_name = %s"
     params = (network_name,)
-    return execute_query(query, params)[0]
+    res = execute_query(query, params)
+    return res[0][0] if res else None
 
 def find_router_ip_by_network(network_name):
     query = "SELECT ip_address FROM router WHERE network_name = %s"
     params = (network_name,)
-    return execute_query(query, params)[0][0]
+    res = execute_query(query, params)
+    return res[0][0] if res else None
 
 def find_router_id_by_network(network_name):
     query = "SELECT id FROM router WHERE network_name = %s"
     params = (network_name,)
-    return execute_query(query, params)[0]
+    res = execute_query(query, params)
+    return res[0] if res else None
 
 def find_record_in_arp_table(device_id, ip_to_find):
     query = '''SELECT mac_address 
@@ -186,7 +190,8 @@ def find_record_in_arp_table(device_id, ip_to_find):
                 ORDER BY created_at DESC
                 LIMIT 1'''
     params = (device_id, ip_to_find)
-    return execute_query(query, params)[0]
+    res = execute_query(query, params)
+    return res[0][0] if res else None
 
 def add_record_to_arp_table(device_id, ip_address, mac_address):
     query = "INSERT INTO arp_table (ip_address, mac_address, device_id) VALUES (%s, %s, %s)"
@@ -222,7 +227,8 @@ def find_record_in_nat_table(public_ip, public_port):
     WHERE public_ip_address = %s
     AND public_port = %s'''
     params = (public_ip, public_port)
-    return execute_query(query, params)[0]
+    res = execute_query(query, params)
+    return res[0] if res else None
 
 def route_file_to_server(computer_ip, computer_network, domain_name, port = 80):
     log = 'File transmission started\n'

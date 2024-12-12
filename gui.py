@@ -14,7 +14,6 @@ class MyApp:
     def create_tabs(self):
         tab_control = ttk.Notebook(self.root)
         self.tab_computers = ttk.Frame(tab_control)
-        self.tab_dns = ttk.Frame(tab_control)
         self.tab_add_computer = ttk.Frame(tab_control)
         self.tab_add_router = ttk.Frame(tab_control)
         self.tab_routers = ttk.Frame(tab_control)  # Новая вкладка для маршрутизаторов
@@ -23,11 +22,9 @@ class MyApp:
         tab_control.add(self.tab_add_computer, text="Add Computer", padding=10)
         tab_control.add(self.tab_routers, text="Routers", padding=10)  # Добавляем вкладку маршрутизаторов
         tab_control.add(self.tab_add_router, text="Add Router", padding=10)
-        tab_control.add(self.tab_dns, text="DNS Resolver", padding=10)
         tab_control.pack(expand=1, fill="both", padx=20, pady=20)
 
         self.create_computers_tab()
-        self.create_dns_tab()
         self.create_add_computer_tab()
         self.create_add_router_tab()
         self.create_routers_tab()  # Создаем вкладку маршрутизаторов
@@ -286,28 +283,6 @@ class MyApp:
     def switch_to_computers_tab(self):
         self.root.nametowidget(self.root.winfo_children()[0].winfo_name()).select(self.tab_computers)
 
-    def create_dns_tab(self):
-        # Вкладка с DNS
-        self.dns_label = tk.Label(self.tab_dns, text="DNS Resolver", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
-        self.dns_label.pack(fill="x", padx=10)
-
-        self.dns_entry = ttk.Entry(self.tab_dns, font=("Arial", 14), width=30)
-        self.dns_entry.pack(pady=10)
-
-        self.dns_button = ttk.Button(self.tab_dns, text="Resolve", command=self.resolve_dns, style="TButton")
-        self.dns_button.pack(pady=10)
-
-        self.dns_result_label = tk.Label(self.tab_dns, text="Result: ", font=("Arial", 14), bg="#e0f7fa", fg="#333333")
-        self.dns_result_label.pack(pady=10)
-
-    def resolve_dns(self):
-        domain_name = self.dns_entry.get()
-        result = resolve_dns(domain_name)
-        if result:
-            self.dns_result_label.config(text=f"Result: {result}")
-        else:
-            messagebox.showerror("Error", "Domain not found!")
-
     def create_add_router_tab(self):
         # Поля для добавления маршрутизатора
         self.ip_label_router = tk.Label(self.tab_add_router, text="IP Address", font=("Arial", 14))
@@ -404,7 +379,7 @@ class MyApp:
     def populate_simulation_dropdowns(self):
         """Заполняет выпадающие списки IP-адресами компьютеров, доменными именами серверов и уникальными network_name для роутеров."""
         # Получаем список IP-адресов компьютеров
-        computer_ips = [comp[1] for comp in list_computers()]  # IP-адреса компьютеров
+        computer_ips = list(set(comp[1] for comp in list_computers()))  # IP-адреса компьютеров
 
         # Получаем список уникальных названий сетей (network_name) для роутеров
         router_network_names = list(set([router[4] for router in list_routers() if router[4]]))  # Уникальные Network Name для роутеров
