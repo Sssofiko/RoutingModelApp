@@ -398,10 +398,6 @@ class MyApp:
         self.simulation_output_text = tk.Text(self.tab_simulation, font=("Arial", 12), height=10, width=90, state="disabled", wrap="word")
         self.simulation_output_text.pack(pady=5)
 
-        # Кнопка для выполнения симуляции
-        self.simulate_button = ttk.Button(self.tab_simulation, text="Run Simulation", command=self.run_simulation, style="TButton")
-        self.simulate_button.pack(pady=10)
-
         # Заполняем выпадающие списки
         self.populate_simulation_dropdowns()
 
@@ -420,6 +416,34 @@ class MyApp:
         self.computer_ip_combobox["values"] = computer_ips
         self.server_domain_combobox["values"] = domain_names  # Заполняем доменами из dns_table
         self.network_name_combobox["values"] = router_network_names  # Уникальные network_name для роутеров
+
+    def apply_protocol_colors(self, text_widget, log):
+        """
+        Применяет цвета к логу
+        """
+        # Define tags for protocol colors
+        text_widget.tag_config('UDP', foreground='#228B22')  # BrightGreen
+        text_widget.tag_config('ARP', foreground='#0000FF')  # Blue
+        text_widget.tag_config('TCP', foreground='#FF0000')  # Red
+        text_widget.tag_config('NAT', foreground='#8A2BE2')  # BlueViolet (unchanged)
+        text_widget.tag_config('HTTP', foreground='#00008B')  # DarkBlue
+
+        index = '1.0'
+        for line in log.split('\n'):
+            if '[UDP]' in line:
+                text_widget.insert(index, line + '\n', 'UDP')
+            elif '[ARP]' in line:
+                text_widget.insert(index, line + '\n', 'ARP')
+            elif '[TCP]' in line:
+                text_widget.insert(index, line + '\n', 'TCP')
+            elif '[NAT]' in line:
+                text_widget.insert(index, line + '\n', 'NAT')
+            elif '[HTTP]' in line:
+                text_widget.insert(index, line + '\n', 'HTTP')
+            else:
+                text_widget.insert(index, line + '\n')  # No protocol tag, default color
+            index = text_widget.index('insert')
+
     def run_simulation(self):
         """Выполняет симуляцию и выводит результат."""
         computer_ip = self.computer_ip_combobox.get()
@@ -441,7 +465,7 @@ class MyApp:
         # Выводим результат в текстовое поле
         self.simulation_output_text.config(state="normal")
         self.simulation_output_text.delete(1.0, tk.END)  # Очищаем предыдущее содержимое
-        self.simulation_output_text.insert(tk.END, simulation_result)
+        self.apply_protocol_colors(self.simulation_output_text, simulation_result)
         self.simulation_output_text.config(state="disabled")  # Запрещаем редактирование
 
 # Создание стилей для кнопок и вкладок
