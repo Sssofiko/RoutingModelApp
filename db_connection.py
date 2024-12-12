@@ -10,9 +10,9 @@ def get_db_connection():
     )
 
 # Функция для добавления нового компьютера
-def add_computer(ip_address, mac_address, router_id, network_name):
-    query = "INSERT INTO computer (ip_address, mac_address, router_id, network_name) VALUES (%s, %s, %s, %s)"
-    params = (ip_address, mac_address, router_id, network_name)
+def add_computer(ip_address, mac_address, router_id):
+    query = "INSERT INTO computer (ip_address, mac_address, router_id) VALUES (%s, %s, %s)"
+    params = (ip_address, mac_address, router_id)
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(query, params)
@@ -116,13 +116,13 @@ def get_router_public_ip_by_id(router_id):
     result = execute_query(query, (router_id,))
     return result[0][0] if result else None
 
-def update_computer(computer_id, ip_address, mac_address, router_id, network_name):
+def update_computer(computer_id, ip_address, mac_address, router_id):
     query = """
         UPDATE computer
-        SET ip_address = %s, mac_address = %s, router_id = %s, network_name = %s
+        SET ip_address = %s, mac_address = %s, router_id = %s
         WHERE id = %s
     """
-    params = (ip_address, mac_address, router_id, network_name, computer_id)
+    params = (ip_address, mac_address, router_id, computer_id)
     conn = get_db_connection()
     cursor = conn.cursor()
     try:

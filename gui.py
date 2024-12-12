@@ -48,6 +48,10 @@ class MyApp:
         # Если выбрана вкладка Simulation, обновляем выпадающие списки
         if tab_name == self.tab_simulation.winfo_name():
             self.populate_simulation_dropdowns()
+
+        selected_tab = event.widget.tab(event.widget.index("current"))["text"]
+        if selected_tab == "Add Computer":
+            self.update_router_public_ips()
     def create_routers_tab(self):
         self.routers_label = tk.Label(self.tab_routers, text="Routers List", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
         self.routers_label.pack(fill="x", padx=10)
@@ -146,9 +150,6 @@ class MyApp:
             if public_ip:
                 self.router_public_ip_combobox.set(public_ip)
 
-            self.network_name_entry_computer.delete(0, tk.END)
-            self.network_name_entry_computer.insert(0, network_name if network_name else "")
-
             # Переключаемся на вкладку "Add Computer"
             self.switch_to_add_computer_tab()
 
@@ -161,9 +162,8 @@ class MyApp:
         ip = self.ip_entry_computer.get()
         mac = self.mac_entry_computer.get()
         public_ip = self.router_public_ip_combobox.get()
-        network_name = self.network_name_entry_computer.get()
 
-        if ip and mac and public_ip and network_name:
+        if ip and mac and public_ip:
             try:
                 # Получаем router_id по public_ip
                 router_id = get_router_id_by_public_ip(public_ip)
@@ -171,7 +171,7 @@ class MyApp:
                     raise Exception("Router not found for the selected Public IP.")
 
                 # Обновляем компьютер в базе данных
-                update_computer(self.current_editing_id, ip, mac, router_id, network_name)
+                update_computer(self.current_editing_id, ip, mac, router_id)
                 messagebox.showinfo("Success", "Computer updated successfully!")
 
                 # Очищаем поля и обновляем список
@@ -230,26 +230,23 @@ class MyApp:
         self.router_public_ip_combobox = ttk.Combobox(self.tab_add_computer, font=("Arial", 14), state="readonly")
         self.router_public_ip_combobox.pack(pady=5)
 
-        self.network_name_label_computer = tk.Label(self.tab_add_computer, text="Network Name", font=("Arial", 14))
-        self.network_name_label_computer.pack(pady=5)
-        self.network_name_entry_computer = ttk.Entry(self.tab_add_computer, font=("Arial", 14))
-        self.network_name_entry_computer.pack(pady=5)
-
         self.submit_button_computer = ttk.Button(self.tab_add_computer, text="Add Computer", command=self.submit_computer, style="TButton")
         self.submit_button_computer.pack(pady=10)
 
         # Заполняем выпадающий список маршрутизаторов
         self.populate_router_combobox()
 
-
+    def update_router_public_ips(self):
+        """Обновляет список доступных Router Public IP в выпадающем списке."""
+        router_public_ips = [router[2] for router in list_routers()]  # Извлекаем Public IP из списка роутеров
+        self.router_public_ip_combobox["values"] = router_public_ips
 
     def submit_computer(self):
         ip = self.ip_entry_computer.get()
         mac = self.mac_entry_computer.get()
         public_ip = self.router_public_ip_combobox.get()
-        network_name = self.network_name_entry_computer.get()
 
-        if ip and mac and public_ip and network_name:
+        if ip and mac and public_ip:
             try:
                 # Получаем ID маршрутизатора по его публичному IP
                 router_id = get_router_id_by_public_ip(public_ip)
@@ -257,7 +254,7 @@ class MyApp:
                     raise Exception("Router not found for the selected Public IP.")
 
                 # Добавляем компьютер
-                add_computer(ip, mac, router_id, network_name)
+                add_computer(ip, mac, router_id)
                 messagebox.showinfo("Success", "Computer added successfully!")
                 self.clear_computer_fields()
             except Exception as e:
@@ -356,7 +353,6 @@ class MyApp:
     def clear_computer_fields(self):
         self.ip_entry_computer.delete(0, tk.END)
         self.mac_entry_computer.delete(0, tk.END)
-        self.network_name_entry_computer.delete(0, tk.END)
 
     def clear_router_fields(self):
         self.ip_entry_router.delete(0, tk.END)
