@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from db_connection import execute_query, list_computers, add_computer, add_router, resolve_dns, delete_computer_by_id, update_computer, list_routers, delete_router_by_id, get_computer_by_id, get_router_public_ip_by_id, get_router_id_by_public_ip  # Не забывайте создать функцию add_router
+from db_connection import *
 
 class MyApp:
     def __init__(self, root):
@@ -8,7 +8,7 @@ class MyApp:
         self.root.title("Network Management App")
         self.root.geometry("900x600")  # Увеличенное окно
         self.root.config(bg="#e0f7fa")  # Фон приложения
-        self.root.iconbitmap("assets/icon.ico")  # Иконка приложения
+        #self.root.iconbitmap("assets/icon.ico")  # Иконка приложения
         self.create_tabs()
 
     def create_tabs(self):
@@ -20,11 +20,10 @@ class MyApp:
         self.tab_routers = ttk.Frame(tab_control)  # Новая вкладка для маршрутизаторов
 
         tab_control.add(self.tab_computers, text="Computers", padding=10)
-        tab_control.add(self.tab_dns, text="DNS Resolver", padding=10)
         tab_control.add(self.tab_add_computer, text="Add Computer", padding=10)
-        tab_control.add(self.tab_add_router, text="Add Router", padding=10)
         tab_control.add(self.tab_routers, text="Routers", padding=10)  # Добавляем вкладку маршрутизаторов
-
+        tab_control.add(self.tab_add_router, text="Add Router", padding=10)
+        tab_control.add(self.tab_dns, text="DNS Resolver", padding=10)
         tab_control.pack(expand=1, fill="both", padx=20, pady=20)
 
         self.create_computers_tab()
@@ -52,6 +51,7 @@ class MyApp:
         selected_tab = event.widget.tab(event.widget.index("current"))["text"]
         if selected_tab == "Add Computer":
             self.update_router_public_ips()
+
     def create_routers_tab(self):
         self.routers_label = tk.Label(self.tab_routers, text="Routers List", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
         self.routers_label.pack(fill="x", padx=10)
@@ -74,7 +74,7 @@ class MyApp:
         self.routers_listbox.delete(0, tk.END)
         routers = list_routers()  # Получаем список маршрутизаторов из базы данных
         for router in routers:
-            self.routers_listbox.insert(tk.END, f"ID: {router[0]} | IP: {router[1]} | MAC: {router[2]}")
+            self.routers_listbox.insert(tk.END, f"ID: {router[0]} | IP: {router[1]} | MAC: {router[2]} | Public IP: {router[3]} | Network: {router[4]}")
 
     def delete_router(self):
         """Удаляет выбранный маршрутизатор."""
@@ -138,7 +138,7 @@ class MyApp:
         computer_data = get_computer_by_id(computer_id)
 
         if computer_data:
-            ip, mac, router_id, network_name = computer_data
+            ip, mac, router_id = computer_data
             public_ip = get_router_public_ip_by_id(router_id)
 
             # Заполняем поля во вкладке "Add Computer"
@@ -198,11 +198,10 @@ class MyApp:
         computers = list_computers()
         self.computers_listbox.delete(0, tk.END)
         for computer in computers:
-            computer_id, ip, mac, public_ip = computer
-            public_ip_display = public_ip if public_ip else "N/A"
+            computer_id, ip, mac, network_name = computer
             self.computers_listbox.insert(
                 tk.END,
-                f"ID: {computer_id} | IP: {ip} | MAC: {mac} | Router Public IP: {public_ip_display}"
+                f"ID: {computer_id} | IP: {ip} | MAC: {mac} | Network Name: {network_name}"
             )
 
         self.refresh_computers_button.config(text="Refresh", state=tk.NORMAL)  # Возвращаем кнопке исходное состояние
@@ -373,6 +372,12 @@ class MyApp:
         self.simulation_label = tk.Label(self.tab_simulation, text="Simulation", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
         self.simulation_label.pack(fill="x", padx=10)
 
+        # Выпадающий список для выбора Network Name (из списка роутеров)
+        self.network_name_label = tk.Label(self.tab_simulation, text="Select Computer Network Name", font=("Arial", 14))
+        self.network_name_label.pack(pady=5)
+        self.network_name_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
+        self.network_name_combobox.pack(pady=5)
+
         # Выпадающий список для IP компьютеров
         self.computer_ip_label = tk.Label(self.tab_simulation, text="Select Computer IP", font=("Arial", 14))
         self.computer_ip_label.pack(pady=5)
@@ -384,12 +389,6 @@ class MyApp:
         self.server_domain_label.pack(pady=5)
         self.server_domain_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
         self.server_domain_combobox.pack(pady=5)
-
-        # Выпадающий список для выбора Network Name (из списка роутеров)
-        self.network_name_label = tk.Label(self.tab_simulation, text="Select Network Name (Router Network Name)", font=("Arial", 14))
-        self.network_name_label.pack(pady=5)
-        self.network_name_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
-        self.network_name_combobox.pack(pady=5)
 
         # Поле для вывода информации
         self.simulation_output_label = tk.Label(self.tab_simulation, text="Output", font=("Arial", 14))
