@@ -211,7 +211,7 @@ class MyApp:
 
     def populate_router_combobox(self):
         """Заполняет выпадающий список публичных IP-адресов маршрутизаторов."""
-        router_ips = [router[2] for router in list_routers()]  # Получаем публичные IP маршрутизаторов
+        router_ips = [router[3] for router in list_routers()]  # Получаем публичные IP маршрутизаторов
         self.router_public_ip_combobox["values"] = router_ips  # Обновляем список значений
     def create_add_computer_tab(self):
         # Поля для добавления компьютера
@@ -238,7 +238,7 @@ class MyApp:
 
     def update_router_public_ips(self):
         """Обновляет список доступных Router Public IP в выпадающем списке."""
-        router_public_ips = [router[2] for router in list_routers()]  # Извлекаем Public IP из списка роутеров
+        router_public_ips = [router[3] for router in list_routers()]  # Извлекаем Public IP из списка роутеров
         self.router_public_ip_combobox["values"] = router_public_ips
 
     def submit_computer(self):
