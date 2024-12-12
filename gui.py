@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from db_connection import list_computers, add_computer, add_router, resolve_dns, delete_computer_by_id, update_computer, list_routers, delete_router_by_id, get_computer_by_id, get_router_public_ip_by_id, get_router_id_by_public_ip  # Не забывайте создать функцию add_router
+from db_connection import *
 
 class MyApp:
     def __init__(self, root):
@@ -20,11 +20,10 @@ class MyApp:
         self.tab_routers = ttk.Frame(tab_control)  # Новая вкладка для маршрутизаторов
 
         tab_control.add(self.tab_computers, text="Computers", padding=10)
-        tab_control.add(self.tab_dns, text="DNS Resolver", padding=10)
         tab_control.add(self.tab_add_computer, text="Add Computer", padding=10)
-        tab_control.add(self.tab_add_router, text="Add Router", padding=10)
         tab_control.add(self.tab_routers, text="Routers", padding=10)  # Добавляем вкладку маршрутизаторов
-
+        tab_control.add(self.tab_add_router, text="Add Router", padding=10)
+        tab_control.add(self.tab_dns, text="DNS Resolver", padding=10)
         tab_control.pack(expand=1, fill="both", padx=20, pady=20)
 
         self.create_computers_tab()
@@ -48,6 +47,11 @@ class MyApp:
         # Если выбрана вкладка Simulation, обновляем выпадающие списки
         if tab_name == self.tab_simulation.winfo_name():
             self.populate_simulation_dropdowns()
+
+        selected_tab = event.widget.tab(event.widget.index("current"))["text"]
+        if selected_tab == "Add Computer":
+            self.update_router_public_ips()
+
     def create_routers_tab(self):
         self.routers_label = tk.Label(self.tab_routers, text="Routers List", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
         self.routers_label.pack(fill="x", padx=10)
@@ -70,7 +74,7 @@ class MyApp:
         self.routers_listbox.delete(0, tk.END)
         routers = list_routers()  # Получаем список маршрутизаторов из базы данных
         for router in routers:
-            self.routers_listbox.insert(tk.END, f"ID: {router[0]} | IP: {router[1]} | MAC: {router[2]}")
+            self.routers_listbox.insert(tk.END, f"ID: {router[0]} | IP: {router[1]} | MAC: {router[2]} | Public IP: {router[3]} | Network: {router[4]}")
 
     def delete_router(self):
         """Удаляет выбранный маршрутизатор."""
@@ -134,7 +138,7 @@ class MyApp:
         computer_data = get_computer_by_id(computer_id)
 
         if computer_data:
-            ip, mac, router_id, network_name = computer_data
+            ip, mac, router_id = computer_data
             public_ip = get_router_public_ip_by_id(router_id)
 
             # Заполняем поля во вкладке "Add Computer"
@@ -145,9 +149,6 @@ class MyApp:
             self.mac_entry_computer.insert(0, mac)
             if public_ip:
                 self.router_public_ip_combobox.set(public_ip)
-
-            self.network_name_entry_computer.delete(0, tk.END)
-            self.network_name_entry_computer.insert(0, network_name if network_name else "")
 
             # Переключаемся на вкладку "Add Computer"
             self.switch_to_add_computer_tab()
@@ -161,9 +162,8 @@ class MyApp:
         ip = self.ip_entry_computer.get()
         mac = self.mac_entry_computer.get()
         public_ip = self.router_public_ip_combobox.get()
-        network_name = self.network_name_entry_computer.get()
 
-        if ip and mac and public_ip and network_name:
+        if ip and mac and public_ip:
             try:
                 # Получаем router_id по public_ip
                 router_id = get_router_id_by_public_ip(public_ip)
@@ -171,7 +171,7 @@ class MyApp:
                     raise Exception("Router not found for the selected Public IP.")
 
                 # Обновляем компьютер в базе данных
-                update_computer(self.current_editing_id, ip, mac, router_id, network_name)
+                update_computer(self.current_editing_id, ip, mac, router_id)
                 messagebox.showinfo("Success", "Computer updated successfully!")
 
                 # Очищаем поля и обновляем список
@@ -198,11 +198,10 @@ class MyApp:
         computers = list_computers()
         self.computers_listbox.delete(0, tk.END)
         for computer in computers:
-            computer_id, ip, mac, public_ip = computer
-            public_ip_display = public_ip if public_ip else "N/A"
+            computer_id, ip, mac, network_name = computer
             self.computers_listbox.insert(
                 tk.END,
-                f"ID: {computer_id} | IP: {ip} | MAC: {mac} | Router Public IP: {public_ip_display}"
+                f"ID: {computer_id} | IP: {ip} | MAC: {mac} | Network Name: {network_name}"
             )
 
         self.refresh_computers_button.config(text="Refresh", state=tk.NORMAL)  # Возвращаем кнопке исходное состояние
@@ -211,7 +210,7 @@ class MyApp:
 
     def populate_router_combobox(self):
         """Заполняет выпадающий список публичных IP-адресов маршрутизаторов."""
-        router_ips = [router[2] for router in list_routers()]  # Получаем публичные IP маршрутизаторов
+        router_ips = [router[3] for router in list_routers()]  # Получаем публичные IP маршрутизаторов
         self.router_public_ip_combobox["values"] = router_ips  # Обновляем список значений
     def create_add_computer_tab(self):
         # Поля для добавления компьютера
@@ -230,26 +229,23 @@ class MyApp:
         self.router_public_ip_combobox = ttk.Combobox(self.tab_add_computer, font=("Arial", 14), state="readonly")
         self.router_public_ip_combobox.pack(pady=5)
 
-        self.network_name_label_computer = tk.Label(self.tab_add_computer, text="Network Name", font=("Arial", 14))
-        self.network_name_label_computer.pack(pady=5)
-        self.network_name_entry_computer = ttk.Entry(self.tab_add_computer, font=("Arial", 14))
-        self.network_name_entry_computer.pack(pady=5)
-
         self.submit_button_computer = ttk.Button(self.tab_add_computer, text="Add Computer", command=self.submit_computer, style="TButton")
         self.submit_button_computer.pack(pady=10)
 
         # Заполняем выпадающий список маршрутизаторов
         self.populate_router_combobox()
 
-
+    def update_router_public_ips(self):
+        """Обновляет список доступных Router Public IP в выпадающем списке."""
+        router_public_ips = [router[3] for router in list_routers()]  # Извлекаем Public IP из списка роутеров
+        self.router_public_ip_combobox["values"] = router_public_ips
 
     def submit_computer(self):
         ip = self.ip_entry_computer.get()
         mac = self.mac_entry_computer.get()
         public_ip = self.router_public_ip_combobox.get()
-        network_name = self.network_name_entry_computer.get()
 
-        if ip and mac and public_ip and network_name:
+        if ip and mac and public_ip:
             try:
                 # Получаем ID маршрутизатора по его публичному IP
                 router_id = get_router_id_by_public_ip(public_ip)
@@ -257,7 +253,7 @@ class MyApp:
                     raise Exception("Router not found for the selected Public IP.")
 
                 # Добавляем компьютер
-                add_computer(ip, mac, router_id, network_name)
+                add_computer(ip, mac, router_id)
                 messagebox.showinfo("Success", "Computer added successfully!")
                 self.clear_computer_fields()
             except Exception as e:
@@ -334,6 +330,12 @@ class MyApp:
         self.network_name_entry_router = ttk.Entry(self.tab_add_router, font=("Arial", 14))
         self.network_name_entry_router.pack(pady=5)
 
+        # Поле ввода доменного имени (опционально)
+        self.router_domain_name_label = tk.Label(self.tab_add_router, text="Domain Name (Optional)", font=("Arial", 14))
+        self.router_domain_name_label.pack(pady=5)
+        self.router_domain_name_entry = tk.Entry(self.tab_add_router, font=("Arial", 14))
+        self.router_domain_name_entry.pack(pady=5)
+
         self.submit_router_button = ttk.Button(self.tab_add_router, text="Add Router", command=self.submit_router, style="TButton")
         self.submit_router_button.pack(pady=10)
 
@@ -342,10 +344,11 @@ class MyApp:
         mac = self.mac_entry_router.get()
         public_ip = self.public_ip_entry_router.get()
         network_name = self.network_name_entry_router.get()
+        domain_name = self.router_domain_name_entry.get()
 
         if ip and mac and public_ip and network_name:
             try:
-                add_router(ip, mac, public_ip, network_name)
+                add_router(ip, mac, public_ip, network_name, domain_name)
                 messagebox.showinfo("Success", "Router added successfully!")
                 self.clear_router_fields()
             except Exception as e:
@@ -356,18 +359,24 @@ class MyApp:
     def clear_computer_fields(self):
         self.ip_entry_computer.delete(0, tk.END)
         self.mac_entry_computer.delete(0, tk.END)
-        self.network_name_entry_computer.delete(0, tk.END)
 
     def clear_router_fields(self):
         self.ip_entry_router.delete(0, tk.END)
         self.mac_entry_router.delete(0, tk.END)
         self.public_ip_entry_router.delete(0, tk.END)
         self.network_name_entry_router.delete(0, tk.END)
+        self.router_domain_name_entry.delete(0, tk.END)
 
     def create_simulation_tab(self):
         # Заголовок вкладки
         self.simulation_label = tk.Label(self.tab_simulation, text="Simulation", font=("Arial", 20, "bold"), bg="#0097A7", fg="white", pady=10)
         self.simulation_label.pack(fill="x", padx=10)
+
+        # Выпадающий список для выбора Network Name (из списка роутеров)
+        self.network_name_label = tk.Label(self.tab_simulation, text="Select Computer Network Name", font=("Arial", 14))
+        self.network_name_label.pack(pady=5)
+        self.network_name_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
+        self.network_name_combobox.pack(pady=5)
 
         # Выпадающий список для IP компьютеров
         self.computer_ip_label = tk.Label(self.tab_simulation, text="Select Computer IP", font=("Arial", 14))
@@ -375,17 +384,11 @@ class MyApp:
         self.computer_ip_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
         self.computer_ip_combobox.pack(pady=5)
 
-        # Выпадающий список для домена сервера (IP маршрутизатора)
-        self.server_domain_label = tk.Label(self.tab_simulation, text="Select Server Domain (Router IP)", font=("Arial", 14))
+        # Выпадающий список для домена сервера (domain_name из dns_table)
+        self.server_domain_label = tk.Label(self.tab_simulation, text="Select Server Domain (Domain Name)", font=("Arial", 14))
         self.server_domain_label.pack(pady=5)
         self.server_domain_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
         self.server_domain_combobox.pack(pady=5)
-
-        # Выпадающий список для выбора Network Name (из списка роутеров)
-        self.network_name_label = tk.Label(self.tab_simulation, text="Select Network Name (Router Network Name)", font=("Arial", 14))
-        self.network_name_label.pack(pady=5)
-        self.network_name_combobox = ttk.Combobox(self.tab_simulation, font=("Arial", 14), state="readonly")
-        self.network_name_combobox.pack(pady=5)
 
         # Поле для вывода информации
         self.simulation_output_label = tk.Label(self.tab_simulation, text="Output", font=("Arial", 14))
@@ -401,29 +404,35 @@ class MyApp:
         self.populate_simulation_dropdowns()
 
     def populate_simulation_dropdowns(self):
-        """Заполняет выпадающие списки IP-адресами компьютеров и маршрутизаторов, а также уникальными network_name для роутеров."""
+        """Заполняет выпадающие списки IP-адресами компьютеров, доменными именами серверов и уникальными network_name для роутеров."""
         # Получаем список IP-адресов компьютеров
         computer_ips = [comp[1] for comp in list_computers()]  # IP-адреса компьютеров
 
         # Получаем список уникальных названий сетей (network_name) для роутеров
         router_network_names = list(set([router[4] for router in list_routers() if router[4]]))  # Уникальные Network Name для роутеров
 
-        # Получаем список IP-адресов маршрутизаторов
-        router_ips = [router[1] for router in list_routers()]  # IP-адреса маршрутизаторов
+        # Получаем список доменных имен из таблицы dns_table
+        domain_names = [domain[0] for domain in execute_query("SELECT domain_name FROM dns_table")]
 
         # Заполняем выпадающие списки
         self.computer_ip_combobox["values"] = computer_ips
-        self.server_domain_combobox["values"] = router_ips
+        self.server_domain_combobox["values"] = domain_names  # Заполняем доменами из dns_table
         self.network_name_combobox["values"] = router_network_names  # Уникальные network_name для роутеров
-
     def run_simulation(self):
         """Выполняет симуляцию и выводит результат."""
         computer_ip = self.computer_ip_combobox.get()
-        router_ip = self.server_domain_combobox.get()
+        domain_name = self.server_domain_combobox.get()
         network_name = self.network_name_combobox.get()
 
-        if not computer_ip or not router_ip or not network_name:
-            messagebox.showerror("Error", "Please select a Computer IP, Router IP, and Network Name.")
+        if not computer_ip or not domain_name or not network_name:
+            messagebox.showerror("Error", "Please select a Computer IP, Server Domain, and Network Name.")
+            return
+
+        # Получаем IP адрес роутера по доменному имени
+        router_ip = resolve_dns(domain_name)
+
+        if not router_ip:
+            messagebox.showerror("Error", f"No IP address found for domain: {domain_name}")
             return
 
         # Код для симуляции

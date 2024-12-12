@@ -10,9 +10,9 @@ def get_db_connection():
     )
 
 # Функция для добавления нового компьютера
-def add_computer(ip_address, mac_address, router_id, network_name):
-    query = "INSERT INTO computer (ip_address, mac_address, router_id, network_name) VALUES (%s, %s, %s, %s)"
-    params = (ip_address, mac_address, router_id, network_name)
+def add_computer(ip_address, mac_address, router_id):
+    query = "INSERT INTO computer (ip_address, mac_address, router_id) VALUES (%s, %s, %s)"
+    params = (ip_address, mac_address, router_id)
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(query, params)
@@ -37,15 +37,32 @@ def delete_computer_by_id(computer_id):
         conn.close()
 
 # Функция для добавления нового маршрутизатора
-def add_router(ip_address, mac_address, public_ip_address, network_name):
-    query = "INSERT INTO router (ip_address, mac_address, public_ip_address, network_name) VALUES (%s, %s, %s, %s)"
-    params = (ip_address, mac_address, public_ip_address, network_name)
+def add_router(ip_address, mac_address, public_ip_address, network_name, domain_name=None):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(query, params)
-    conn.commit()  # Подтверждаем изменения
-    cursor.close()
-    conn.close()
+    try:
+        # Добавляем маршрутизатор
+        query_router = """
+            INSERT INTO router (ip_address, mac_address, public_ip_address, network_name)
+            VALUES (%s, %s, %s, %s) RETURNING id
+        """
+        cursor.execute(query_router, (ip_address, mac_address, public_ip_address, network_name))
+
+        # Если доменное имя указано, добавляем его в таблицу DNS
+        if domain_name:
+            query_dns = """
+                INSERT INTO dns_table (domain_name, ip_address)
+                VALUES (%s, %s)
+            """
+            cursor.execute(query_dns, (domain_name, ip_address))
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise e
+    finally:
+        cursor.close()
+        conn.close()
 
 # Функция для получения списка компьютеров
 def list_computers():
@@ -53,7 +70,7 @@ def list_computers():
     Возвращает список компьютеров с их данными и публичным IP маршрутизатора.
     """
     query = """
-        SELECT c.id, c.ip_address, c.mac_address, r.public_ip_address
+        SELECT c.id, c.ip_address, c.mac_address, r.network_name
         FROM computer c
         LEFT JOIN router r ON c.router_id = r.id
     """
@@ -97,7 +114,7 @@ def delete_router_by_id(router_id):
 def get_computer_by_id(computer_id):
     """Получает данные компьютера по ID."""
     query = """
-        SELECT ip_address, mac_address, router_id, network_name
+        SELECT ip_address, mac_address, router_id
         FROM computer
         WHERE id = %s
     """
@@ -116,13 +133,13 @@ def get_router_public_ip_by_id(router_id):
     result = execute_query(query, (router_id,))
     return result[0][0] if result else None
 
-def update_computer(computer_id, ip_address, mac_address, router_id, network_name):
+def update_computer(computer_id, ip_address, mac_address, router_id):
     query = """
         UPDATE computer
-        SET ip_address = %s, mac_address = %s, router_id = %s, network_name = %s
+        SET ip_address = %s, mac_address = %s, router_id = %s
         WHERE id = %s
     """
-    params = (ip_address, mac_address, router_id, network_name, computer_id)
+    params = (ip_address, mac_address, router_id, computer_id)
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
