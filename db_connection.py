@@ -39,7 +39,6 @@ def delete_computer_by_id(computer_id):
         cursor.close()
         conn.close()
 
-# Функция для добавления нового маршрутизатора
 def add_router(ip_address, mac_address, public_ip_address, network_name, domain_name=None):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -57,7 +56,8 @@ def add_router(ip_address, mac_address, public_ip_address, network_name, domain_
                 INSERT INTO dns_table (domain_name, ip_address)
                 VALUES (%s, %s)
             """
-            cursor.execute(query_dns, (domain_name, ip_address))
+            # Используем public_ip_address вместо ip_address
+            cursor.execute(query_dns, (domain_name, public_ip_address))
 
         conn.commit()
     except Exception as e:
