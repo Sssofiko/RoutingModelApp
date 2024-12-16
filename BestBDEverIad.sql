@@ -48,6 +48,8 @@ CREATE TABLE dns_table (
 ALTER TABLE computer ADD CONSTRAINT fk_computer_router FOREIGN KEY (router_id) REFERENCES router(id) ON DELETE SET NULL;
 ALTER TABLE arp_table ADD CONSTRAINT fk_arp_computer FOREIGN KEY (device_id) REFERENCES computer(id) ON DELETE CASCADE;
 ALTER TABLE nat_table ADD CONSTRAINT fk_nat_router FOREIGN KEY (router_id) REFERENCES router(id) ON DELETE CASCADE;
+
+
 ALTER TABLE dns_table ADD CONSTRAINT fk_dns_router FOREIGN KEY (ip_address) REFERENCES router(public_ip_address) ON DELETE CASCADE;
 -- Создание таблицы для хранения информации о компьютерах в сети
 CREATE TABLE computer (
